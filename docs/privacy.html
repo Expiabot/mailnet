@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MailNet — Politique de confidentialité</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --ground: #f4f6fb;
+    --surface: #ffffff;
+    --ink: #1f2937;
+    --muted: #5b6579;
+    --line: #e5e7eb;
+    --accent: #4f46e5;
+    --ok-wash: #ecfdf5;
+    --ok-line: #6ee7b7;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ground: #10131a;
+      --surface: #171b24;
+      --ink: #e7eaf2;
+      --muted: #a8b0c0;
+      --line: #2a3140;
+      --accent: #8f88fb;
+      --ok-wash: #10291b;
+      --ok-line: #2f6b4a;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    line-height: 1.65;
+  }
+  .wrap { max-width: 720px; margin: 0 auto; padding-inline: 20px; padding-block: 48px 80px; }
+  h1 { font-size: clamp(1.7rem, 5vw, 2.3rem); line-height: 1.15; margin: 0 0 8px; }
+  h2 { font-size: 1.15rem; margin: 40px 0 10px; }
+  h3 { font-size: 1rem; margin: 24px 0 6px; }
+  p, li { max-width: 66ch; }
+  .updated { color: var(--muted); font-size: .9rem; margin: 0 0 32px; }
+  .lead {
+    background: var(--ok-wash);
+    border: 1px solid var(--ok-line);
+    border-radius: 12px;
+    padding: 16px 18px;
+    margin: 0 0 32px;
+  }
+  .lead p { margin: 0; }
+  table { width: 100%; border-collapse: collapse; font-size: .95rem; margin: 12px 0; }
+  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-size: .78rem; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); font-weight: 600; }
+  .table-wrap { overflow-x: auto; }
+  code { background: var(--surface); border: 1px solid var(--line); border-radius: 5px; padding: 1px 5px; font-size: .88em; }
+  a { color: var(--accent); }
+  footer { margin-top: 48px; padding-top: 20px; border-top: 1px solid var(--line); color: var(--muted); font-size: .88rem; }
+  .todo { background: #fef3c7; color: #92400e; padding: 2px 6px; border-radius: 4px; font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>Politique de confidentialité de MailNet</h1>
+<p class="updated">Dernière mise à jour : 14 septembre 2026</p>
+
+<div class="lead">
+  <p><strong>En une phrase :</strong> MailNet n'a pas de serveur. Votre téléphone se connecte
+  directement à votre fournisseur de messagerie, et aucune donnée — ni identifiant, ni message,
+  ni statistique d'usage — n'est transmise à l'éditeur de l'application ou à un quelconque tiers.</p>
+</div>
+
+<h2>1. Qui édite l'application</h2>
+<p>
+  MailNet est édité par <span class="todo">[Nom ou raison sociale]</span>,
+  <span class="todo">[adresse postale]</span>, France.
+  Contact : <a href="mailto:contact@mailnet.fr">contact@mailnet.fr</a>.
+</p>
+
+<h2>2. Ce que fait l'application</h2>
+<p>
+  MailNet se connecte à votre boîte mail en IMAP pour vous aider à supprimer des messages en
+  masse : par filtre (expéditeur, objet, ancienneté, taille) ou par expéditeur regroupé. Elle
+  peut aussi déclencher un désabonnement quand l'expéditeur en propose un.
+</p>
+
+<h2>3. Les données traitées, et où elles vont</h2>
+
+<div class="table-wrap">
+<table>
+  <thead>
+    <tr><th>Donnée</th><th>Pourquoi</th><th>Destination</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Adresse e-mail et mot de passe (ou mot de passe d'application)</td>
+      <td>S'authentifier auprès de votre fournisseur</td>
+      <td>Votre fournisseur uniquement, par connexion chiffrée TLS</td>
+    </tr>
+    <tr>
+      <td>En-têtes des messages : expéditeur, objet, date, taille, lien de désabonnement</td>
+      <td>Afficher la liste et regrouper par expéditeur</td>
+      <td>Reste sur l'appareil, en mémoire vive</td>
+    </tr>
+    <tr>
+      <td>Noms des dossiers de votre boîte</td>
+      <td>Vous laisser choisir où chercher</td>
+      <td>Reste sur l'appareil, en mémoire vive</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<h3>Ce que l'application ne fait pas</h3>
+<ul>
+  <li>Elle ne lit <strong>jamais le contenu</strong> de vos messages. Seuls les en-têtes sont
+    récupérés, avec la commande IMAP <code>BODY.PEEK</code> — qui ne marque d'ailleurs aucun
+    message comme lu.</li>
+  <li>Elle ne contient <strong>aucun outil de mesure d'audience</strong>, aucun traceur publicitaire,
+    aucun kit de développement tiers de collecte. La liste complète de ses dépendances est
+    vérifiable dans le code source.</li>
+  <li>Elle ne transmet <strong>aucune donnée à l'éditeur</strong>. Il n'existe aucun serveur
+    MailNet auquel l'application pourrait parler.</li>
+  <li>Elle ne crée <strong>aucun compte</strong> et ne vous demande aucune inscription.</li>
+</ul>
+
+<h2>4. Conservation de vos identifiants</h2>
+<p>
+  Si vous activez « Mémoriser ce compte », vos identifiants sont enregistrés dans le coffre-fort
+  du système d'exploitation : le <strong>Keystore</strong> sur Android, le
+  <strong>Trousseau</strong> sur iOS. Ils sont chiffrés par le système, liés à cet appareil, et
+  inaccessibles aux autres applications.
+</p>
+<p>
+  Sur iOS, le trousseau est configuré en <code>first_unlock_this_device</code> : vos identifiants
+  ne sont jamais synchronisés vers iCloud.
+</p>
+<p>
+  Si vous laissez l'option désactivée, rien n'est écrit sur le disque : les identifiants
+  disparaissent à la fermeture de l'application.
+</p>
+
+<h2>5. Les seules connexions sortantes</h2>
+<p>MailNet ouvre exactement deux types de connexion, et aucune autre :</p>
+<ol>
+  <li><strong>Votre serveur IMAP</strong> — celui que vous avez choisi (Gmail, Orange, Free,
+    iCloud, ou l'adresse que vous saisissez), en TLS sur le port 993.</li>
+  <li><strong>Le serveur de désabonnement d'un expéditeur</strong> — uniquement lorsque vous
+    appuyez sur « Se désabonner ». L'application contacte alors l'adresse fournie par cet
+    expéditeur dans l'en-tête <code>List-Unsubscribe</code> de ses propres messages. Cette
+    connexion est soumise à la politique de confidentialité de l'expéditeur, pas à celle-ci.
+    Aucune requête n'est envoyée sans votre action explicite.</li>
+</ol>
+
+<h2>6. Autorisations demandées</h2>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Autorisation</th><th>Raison</th></tr></thead>
+  <tbody>
+    <tr><td><code>INTERNET</code></td><td>Joindre votre serveur de messagerie</td></tr>
+    <tr><td><code>FOREGROUND_SERVICE</code><br><code>FOREGROUND_SERVICE_DATA_SYNC</code></td>
+        <td>Poursuivre une suppression longue quand vous quittez l'écran, sans que le système
+        n'interrompe l'opération à mi-parcours</td></tr>
+    <tr><td><code>WAKE_LOCK</code></td><td>Empêcher la mise en veille du processeur pendant une
+        suppression en cours</td></tr>
+    <tr><td><code>POST_NOTIFICATIONS</code></td><td>Afficher la progression de la suppression.
+        Refuser cette autorisation n'empêche pas l'application de fonctionner</td></tr>
+  </tbody>
+</table>
+</div>
+<p>
+  MailNet ne demande ni la localisation, ni les contacts, ni la caméra, ni le micro, ni l'accès
+  aux fichiers.
+</p>
+
+<h2>7. Suppression de vos données</h2>
+<p>
+  Désactiver « Mémoriser ce compte » efface immédiatement les identifiants enregistrés.
+  Désinstaller l'application supprime la totalité de ses données de l'appareil. Comme rien n'est
+  stocké ailleurs, aucune demande d'effacement n'a besoin de nous être adressée : il n'y a rien
+  à effacer de notre côté.
+</p>
+<p>
+  Les messages que vous supprimez sont, par défaut, déplacés vers la corbeille de votre
+  fournisseur et restent récupérables selon les règles de ce fournisseur — trente jours chez
+  Gmail, par exemple. La suppression définitive est une option que vous devez cocher
+  explicitement.
+</p>
+
+<h2>8. Base légale et vos droits (RGPD)</h2>
+<p>
+  Le traitement se limite à l'exécution du service que vous demandez, et s'effectue
+  intégralement sur votre appareil. L'éditeur n'étant destinataire d'aucune donnée, il n'agit
+  pas comme responsable de traitement au sens du RGPD pour le contenu de votre messagerie :
+  ce rôle revient à votre fournisseur de messagerie, auprès de qui s'exercent vos droits
+  d'accès, de rectification, d'effacement et de portabilité.
+</p>
+<p>
+  Pour toute question sur l'application elle-même, écrivez à
+  <a href="mailto:contact@mailnet.fr">contact@mailnet.fr</a>. Vous pouvez également introduire
+  une réclamation auprès de la <a href="https://www.cnil.fr" rel="noopener">CNIL</a>.
+</p>
+
+<h2>9. Mineurs</h2>
+<p>
+  MailNet ne s'adresse pas spécifiquement aux enfants et ne collecte sciemment aucune donnée
+  les concernant.
+</p>
+
+<h2>10. Modifications</h2>
+<p>
+  Toute modification de cette politique sera publiée sur cette page, avec une date de mise à
+  jour révisée. Les changements substantiels seront signalés dans les notes de version de
+  l'application.
+</p>
+
+<footer>
+  MailNet — application de nettoyage de boîte mail.
+  Cette page est la politique de confidentialité officielle référencée sur Google Play
+  et l'App Store.
+</footer>
+
+</div>
+</body>
+</html>
