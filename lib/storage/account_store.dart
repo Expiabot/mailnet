@@ -54,6 +54,7 @@ class AccountStore {
 
   static const _key = 'mailnet.account';
   static const _googleKey = 'mailnet.google';
+  static const _pendingKey = 'mailnet.google.pending';
 
   final FlutterSecureStorage _storage;
 
@@ -103,6 +104,39 @@ class AccountStore {
       await _storage.write(key: _googleKey, value: jsonEncode(session.toJson()));
     } catch (_) {
       // Worst case the user signs in again next time.
+    }
+  }
+
+  // --- sign-in in flight ---------------------------------------------------
+
+  /// Written before the browser opens: Android kills the app while the consent
+  /// screen is in front, and the exchange needs this to survive that.
+  Future<void> savePending(PendingAuth pending) async {
+    try {
+      await _storage.write(
+        key: _pendingKey,
+        value: jsonEncode(pending.toJson()),
+      );
+    } catch (_) {
+      // nothing useful to do
+    }
+  }
+
+  Future<PendingAuth?> readPending() async {
+    try {
+      final raw = await _storage.read(key: _pendingKey);
+      if (raw == null) return null;
+      return PendingAuth.fromJson(jsonDecode(raw) as Map<String, dynamic>);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> clearPending() async {
+    try {
+      await _storage.delete(key: _pendingKey);
+    } catch (_) {
+      // nothing useful to do
     }
   }
 

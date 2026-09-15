@@ -39,6 +39,17 @@
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
+
+            <!-- Google sends the browser back here after consent. The activity
+                 is singleTop, so this arrives as a new intent when the app is
+                 alive — and relaunches it when Android has killed it, which on
+                 Samsung it reliably does while the consent screen is in front. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="${googleRedirectScheme}"/>
+            </intent-filter>
         </activity>
 
         <service

@@ -10,8 +10,9 @@ val keystoreProperties = Properties().apply {
 val hasReleaseKey = keystoreProperties.getProperty("storeFile") != null
 
 // The Google client id is public (an installed app gets no secret) but it is
-// per-installation, so it stays out of the repo. AppAuth needs the reversed
-// form as an intent-filter scheme, derived here so there is one source of truth.
+// per-installation, so it stays out of the repo. The reversed form becomes the
+// intent-filter scheme that brings the browser back, derived here so there is
+// one source of truth.
 val oauthProperties = Properties().apply {
     val file = rootProject.file("oauth.properties")
     if (file.exists()) file.inputStream().use { load(it) }
@@ -66,7 +67,7 @@ android {
         versionCode = flutter.versionCode
         versionName = flutter.versionName
 
-        manifestPlaceholders["appAuthRedirectScheme"] = googleRedirectScheme
+        manifestPlaceholders["googleRedirectScheme"] = googleRedirectScheme
     }
 
     buildTypes {

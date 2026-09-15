@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../mail/enough_mail_gateway.dart';
@@ -39,10 +41,22 @@ class _LoginScreenState extends State<LoginScreen> {
   /// Google is offered only when the build carries a client id.
   bool get _googleAvailable => _provider.supportsGoogle && _google.isConfigured;
 
+  final _redirects = RedirectListener();
+  StreamSubscription<Uri>? _redirectSub;
+
   @override
   void initState() {
     super.initState();
     _restore();
+    _watchForRedirect();
+  }
+
+  Future<void> _watchForRedirect() async {
+    _redirectSub = _redirects.links.listen(_completeGoogle);
+    // The app may have been killed during consent and relaunched *by* the
+    // redirect; that arrives here rather than on the stream.
+    final initial = await _redirects.initialLink();
+    if (initial != null) await _completeGoogle(initial);
   }
 
   Future<void> _restore() async {
@@ -62,6 +76,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   void dispose() {
+    _redirectSub?.cancel();
     _email.dispose();
     _password.dispose();
     _host.dispose();
@@ -143,30 +158,63 @@ class _LoginScreenState extends State<LoginScreen> {
     });
   }
 
-  /// Signs in with Google and opens the mailbox over XOAUTH2.
+  /// Starts the Google flow: persist what is needed to finish, then hand over
+  /// to the browser.
   ///
-  /// The session is handed to [MailService] as a *callback* rather than a fixed
-  /// token: every reconnection re-reads it, so an access token that expires
-  /// mid-deletion is renewed without the user noticing.
-  Future<void> _connectWithGoogle() async {
+  /// Nothing is awaited here. Android kills this app while the consent screen
+  /// is in front, so the second half runs in [_completeGoogle] — possibly in a
+  /// brand-new process.
+  Future<void> _startGoogle() async {
     FocusScope.of(context).unfocus();
     setState(() {
       _busy = true;
       _error = null;
       _errorDetail = null;
     });
+    try {
+      final (pending, url) = _google.beginSignIn();
+      await _store.savePending(pending);
+      await _google.openBrowser(url);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _busy = false;
+        _error = e is GoogleAuthException ? e.message : _friendlyError(e);
+        _errorDetail = e.toString();
+      });
+    }
+  }
+
+  /// Second half of the flow, triggered by the redirect — on a fresh launch or
+  /// while the app is still running.
+  Future<void> _completeGoogle(Uri redirect) async {
+    if (!_google.isRedirect(redirect)) return;
+    final pending = await _store.readPending();
+    if (pending == null) {
+      if (!mounted) return;
+      setState(() {
+        _busy = false;
+        _error = 'Connexion Google interrompue. Réessayez.';
+      });
+      return;
+    }
+    await _store.clearPending();
+    if (!mounted) return;
+    setState(() => _busy = true);
 
     final gateway = EnoughMailGateway();
     try {
-      var session = await _google.signIn();
+      var session = await _google.completeSignIn(redirect, pending);
 
       final service = MailService(
         gateway: gateway,
         account: MailAccount(
-          host: _provider.host,
-          port: _provider.port,
+          host: 'imap.gmail.com',
+          port: 993,
           user: session.email,
         ),
+        // A callback, not a fixed token: every reconnection re-reads it, so a
+        // token expiring mid-deletion is renewed without the user noticing.
         credentials: () async {
           session = await _google.refreshed(session);
           await _store.saveGoogle(session);
@@ -316,7 +364,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         if (_googleAvailable) ...[
                           const SizedBox(height: 20),
                           _GoogleButton(
-                            onPressed: _busy ? null : _connectWithGoogle,
+                            onPressed: _busy ? null : _startGoogle,
                           ),
                           const SizedBox(height: 18),
                           Row(

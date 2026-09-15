@@ -29,7 +29,7 @@ void main() {
         clientId: '123456-abcdef.apps.googleusercontent.com',
       );
       expect(
-        auth.redirectUrl,
+        auth.redirectUri,
         'com.googleusercontent.apps.123456-abcdef:/oauth2redirect',
       );
     });
@@ -37,7 +37,20 @@ void main() {
     test('sans identifiant, la connexion Google est désactivée', () {
       const auth = GoogleAuth(clientId: '');
       expect(auth.isConfigured, isFalse);
-      expect(auth.signIn(), throwsA(isA<GoogleAuthException>()));
+      expect(auth.beginSignIn, throwsA(isA<GoogleAuthException>()));
+    });
+
+    test('une redirection est reconnue, une autre non', () {
+      const auth = GoogleAuth(
+        clientId: '123456-abcdef.apps.googleusercontent.com',
+      );
+      expect(
+        auth.isRedirect(
+          Uri.parse('com.googleusercontent.apps.123456-abcdef:/oauth2redirect?code=x'),
+        ),
+        isTrue,
+      );
+      expect(auth.isRedirect(Uri.parse('https://exemple.fr/callback')), isFalse);
     });
   });
 
