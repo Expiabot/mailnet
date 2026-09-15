@@ -9,6 +9,23 @@ val keystoreProperties = Properties().apply {
 }
 val hasReleaseKey = keystoreProperties.getProperty("storeFile") != null
 
+// The Google client id is public (an installed app gets no secret) but it is
+// per-installation, so it stays out of the repo. AppAuth needs the reversed
+// form as an intent-filter scheme, derived here so there is one source of truth.
+val oauthProperties = Properties().apply {
+    val file = rootProject.file("oauth.properties")
+    if (file.exists()) file.inputStream().use { load(it) }
+}
+val googleClientId: String = oauthProperties.getProperty("googleClientId") ?: ""
+val googleRedirectScheme: String = if (googleClientId.isEmpty()) {
+    // A placeholder keeps a fresh clone compiling; the button stays hidden
+    // because the Dart side has no client id either.
+    "fr.mailnet.no-google-client"
+} else {
+    "com.googleusercontent.apps." +
+        googleClientId.removeSuffix(".apps.googleusercontent.com")
+}
+
 plugins {
     id("com.android.application")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
@@ -48,6 +65,8 @@ android {
         // flag during build.
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+
+        manifestPlaceholders["appAuthRedirectScheme"] = googleRedirectScheme
     }
 
     buildTypes {

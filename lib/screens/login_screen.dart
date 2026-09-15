@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../mail/enough_mail_gateway.dart';
+import '../mail/google_auth.dart';
 import '../mail/mail_service.dart';
 import '../mail/models.dart';
 import '../providers.dart';
@@ -32,6 +33,11 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _restoring = true;
 
   MailProvider get _provider => providerById(_providerId);
+
+  static const _google = GoogleAuth(clientId: GoogleAuth.configured);
+
+  /// Google is offered only when the build carries a client id.
+  bool get _googleAvailable => _provider.supportsGoogle && _google.isConfigured;
 
   @override
   void initState() {
@@ -135,6 +141,68 @@ class _LoginScreenState extends State<LoginScreen> {
       _error = _friendlyError(lastError);
       _errorDetail = lastError?.toString();
     });
+  }
+
+  /// Signs in with Google and opens the mailbox over XOAUTH2.
+  ///
+  /// The session is handed to [MailService] as a *callback* rather than a fixed
+  /// token: every reconnection re-reads it, so an access token that expires
+  /// mid-deletion is renewed without the user noticing.
+  Future<void> _connectWithGoogle() async {
+    FocusScope.of(context).unfocus();
+    setState(() {
+      _busy = true;
+      _error = null;
+      _errorDetail = null;
+    });
+
+    final gateway = EnoughMailGateway();
+    try {
+      var session = await _google.signIn();
+
+      final service = MailService(
+        gateway: gateway,
+        account: MailAccount(
+          host: _provider.host,
+          port: _provider.port,
+          user: session.email,
+        ),
+        credentials: () async {
+          session = await _google.refreshed(session);
+          await _store.saveGoogle(session);
+          return OAuthCredentials(session.accessToken);
+        },
+      );
+
+      final folders = await service.loadFolders();
+      if (_remember) {
+        await _store.saveGoogle(session);
+      } else {
+        await _store.clearGoogle();
+      }
+      if (!mounted) return;
+
+      await Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => FiltersScreen(
+            service: service,
+            email: session.email,
+            listing: folders,
+          ),
+        ),
+      );
+      await service.disconnect();
+      if (mounted) setState(() => _busy = false);
+    } catch (e) {
+      debugPrint('[mailnet] échec de connexion Google: $e');
+      await gateway.disconnect();
+      if (!mounted) return;
+      setState(() {
+        _busy = false;
+        _error = e is GoogleAuthException ? e.message : _friendlyError(e);
+        _errorDetail = e.toString();
+      });
+    }
   }
 
   static String _friendlyError(Object? error) {
@@ -245,6 +313,32 @@ class _LoginScreenState extends State<LoginScreen> {
                               ? 'Mot de passe requis'
                               : null,
                         ),
+                        if (_googleAvailable) ...[
+                          const SizedBox(height: 20),
+                          _GoogleButton(
+                            onPressed: _busy ? null : _connectWithGoogle,
+                          ),
+                          const SizedBox(height: 18),
+                          Row(
+                            children: [
+                              const Expanded(child: Divider()),
+                              Padding(
+                                padding:
+                                    const EdgeInsets.symmetric(horizontal: 12),
+                                child: Text(
+                                  'ou avec un mot de passe',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onSurfaceVariant,
+                                  ),
+                                ),
+                              ),
+                              const Expanded(child: Divider()),
+                            ],
+                          ),
+                        ],
                         if (provider.hint.isNotEmpty) ...[
                           const SizedBox(height: 16),
                           NoticeBox(
@@ -368,6 +462,76 @@ class _Header extends StatelessWidget {
       ],
     );
   }
+}
+
+/// Google's own button styling: white ground, its four-colour mark, and the
+/// exact wording their brand guidelines require.
+class _GoogleButton extends StatelessWidget {
+  const _GoogleButton({required this.onPressed});
+
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) => FilledButton.icon(
+        onPressed: onPressed,
+        style: FilledButton.styleFrom(
+          backgroundColor: Colors.white,
+          foregroundColor: const Color(0xFF1F1F1F),
+          disabledBackgroundColor: Colors.white70,
+        ),
+        icon: const _GoogleMark(),
+        label: const Text('Se connecter avec Google'),
+      );
+}
+
+/// Drawn rather than fetched: the app must keep working with no outside
+/// request, and a bundled logo would be one more asset to license.
+class _GoogleMark extends StatelessWidget {
+  const _GoogleMark();
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+        width: 20,
+        height: 20,
+        child: CustomPaint(painter: _GoogleMarkPainter()),
+      );
+}
+
+class _GoogleMarkPainter extends CustomPainter {
+  static const _blue = Color(0xFF4285F4);
+  static const _red = Color(0xFFEA4335);
+  static const _yellow = Color(0xFFFBBC05);
+  static const _green = Color(0xFF34A853);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = Offset.zero & size;
+    final stroke = size.width * 0.26;
+    final inner = rect.deflate(stroke / 2);
+    final paint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = stroke
+      ..strokeCap = StrokeCap.butt;
+
+    // Four arcs of the ring, then the bar that closes the G.
+    const quarter = 1.5707963;
+    for (final (start, colour) in [
+      (-quarter * 0.35, _red),
+      (quarter * 0.75, _green),
+      (quarter * 2.1, _yellow),
+      (quarter * 3.2, _blue),
+    ]) {
+      canvas.drawArc(inner, start, quarter * 0.95, false, paint..color = colour);
+    }
+    canvas.drawRect(
+      Rect.fromLTRB(size.width * 0.52, size.height * 0.40,
+          size.width * 1.0, size.height * 0.60),
+      Paint()..color = _blue,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 /// The server's verbatim reply, folded away until tapped. Ugly on purpose —

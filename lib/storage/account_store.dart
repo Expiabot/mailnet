@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
+import '../mail/google_auth.dart';
+
 /// What we need to log back in without asking again.
 class SavedAccount {
   const SavedAccount({
@@ -51,6 +53,7 @@ class AccountStore {
             );
 
   static const _key = 'mailnet.account';
+  static const _googleKey = 'mailnet.google';
 
   final FlutterSecureStorage _storage;
 
@@ -76,6 +79,36 @@ class AccountStore {
   Future<void> clear() async {
     try {
       await _storage.delete(key: _key);
+    } catch (_) {
+      // nothing useful to do
+    }
+  }
+
+  // --- Google -------------------------------------------------------------
+
+  /// The refresh token is the durable credential here, so it gets the same
+  /// Keystore treatment as a password.
+  Future<GoogleSession?> readGoogle() async {
+    try {
+      final raw = await _storage.read(key: _googleKey);
+      if (raw == null) return null;
+      return GoogleSession.fromJson(jsonDecode(raw) as Map<String, dynamic>);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> saveGoogle(GoogleSession session) async {
+    try {
+      await _storage.write(key: _googleKey, value: jsonEncode(session.toJson()));
+    } catch (_) {
+      // Worst case the user signs in again next time.
+    }
+  }
+
+  Future<void> clearGoogle() async {
+    try {
+      await _storage.delete(key: _googleKey);
     } catch (_) {
       // nothing useful to do
     }

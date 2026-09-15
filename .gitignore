@@ -51,3 +51,6 @@ app.*.map.json
 android/key.properties
 *.jks
 *.p12
+
+# Identifiant OAuth propre à l'installation.
+android/oauth.properties
