@@ -67,6 +67,11 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _restore() async {
+    // A remembered OAuth account skips the browser entirely: the refresh token
+    // in the keystore is enough to mint a new access token.
+    final session = await _store.readOAuth();
+    if (session != null && await _resumeOAuth(session)) return;
+
     final saved = await _store.read();
     if (!mounted) return;
     setState(() {
@@ -79,6 +84,71 @@ class _LoginScreenState extends State<LoginScreen> {
       }
       _restoring = false;
     });
+  }
+
+  /// Reopens a remembered OAuth mailbox without any user interaction.
+  ///
+  /// Returns false when the stored authorisation is no longer usable — which
+  /// is what happens every seven days while the Google project sits in testing
+  /// mode, since a refresh token cannot itself be refreshed.
+  Future<bool> _resumeOAuth(OAuthSession session) async {
+    OAuthProvider? provider;
+    for (final candidate in OAuthProviders.configured) {
+      if (candidate.id == session.providerId) provider = candidate;
+    }
+    if (provider == null) return false;
+
+    final flow = OAuthFlow(provider);
+    final gateway = EnoughMailGateway();
+    try {
+      var live = await flow.refreshed(session);
+      await _store.saveOAuth(live);
+
+      final service = MailService(
+        gateway: gateway,
+        account: MailAccount(
+          host: provider.imapHost,
+          port: provider.imapPort,
+          user: live.email,
+        ),
+        credentials: () async {
+          live = await flow.refreshed(live);
+          await _store.saveOAuth(live);
+          return OAuthCredentials(live.accessToken);
+        },
+      );
+
+      final folders = await service.loadFolders();
+      if (!mounted) return false;
+      setState(() => _restoring = false);
+
+      await Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => FiltersScreen(
+            service: service,
+            email: live.email,
+            listing: folders,
+          ),
+        ),
+      );
+      await service.disconnect();
+      return true;
+    } catch (e) {
+      debugPrint('[mailnet] session ${session.providerId} non reprise: $e');
+      await gateway.disconnect();
+      // The stored authorisation is spent; make the user sign in again rather
+      // than retrying it on every launch.
+      await _store.clearOAuth();
+      if (!mounted) return false;
+      setState(() {
+        _restoring = false;
+        _providerId = session.providerId == 'microsoft' ? 'outlook' : 'gmail';
+        _error = e is OAuthException
+            ? e.message
+            : "La connexion mémorisée n'est plus valide. Reconnectez-vous.";
+      });
+      return true;
+    }
   }
 
   @override
