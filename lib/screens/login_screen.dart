@@ -3,7 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../mail/enough_mail_gateway.dart';
-import '../mail/google_auth.dart';
+import '../mail/oauth_flow.dart';
+import '../mail/oauth_providers.dart';
 import '../mail/mail_service.dart';
 import '../mail/models.dart';
 import '../providers.dart';
@@ -36,10 +37,16 @@ class _LoginScreenState extends State<LoginScreen> {
 
   MailProvider get _provider => providerById(_providerId);
 
-  static const _google = GoogleAuth(clientId: GoogleAuth.configured);
-
-  /// Google is offered only when the build carries a client id.
-  bool get _googleAvailable => _provider.supportsGoogle && _google.isConfigured;
+  /// The OAuth provider matching the picked mail provider, when the build
+  /// carries a client id for it.
+  OAuthProvider? get _oauth {
+    final id = _provider.oauthProviderId;
+    if (id == null) return null;
+    for (final candidate in OAuthProviders.configured) {
+      if (candidate.id == id) return candidate;
+    }
+    return null;
+  }
 
   final _redirects = RedirectListener();
   StreamSubscription<Uri>? _redirectSub;
@@ -52,11 +59,11 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _watchForRedirect() async {
-    _redirectSub = _redirects.links.listen(_completeGoogle);
+    _redirectSub = _redirects.links.listen(_completeOAuth);
     // The app may have been killed during consent and relaunched *by* the
     // redirect; that arrives here rather than on the stream.
     final initial = await _redirects.initialLink();
-    if (initial != null) await _completeGoogle(initial);
+    if (initial != null) await _completeOAuth(initial);
   }
 
   Future<void> _restore() async {
@@ -162,9 +169,11 @@ class _LoginScreenState extends State<LoginScreen> {
   /// to the browser.
   ///
   /// Nothing is awaited here. Android kills this app while the consent screen
-  /// is in front, so the second half runs in [_completeGoogle] — possibly in a
+  /// is in front, so the second half runs in [_completeOAuth] — possibly in a
   /// brand-new process.
-  Future<void> _startGoogle() async {
+  Future<void> _startOAuth() async {
+    final oauth = _oauth;
+    if (oauth == null) return;
     FocusScope.of(context).unfocus();
     setState(() {
       _busy = true;
@@ -172,14 +181,14 @@ class _LoginScreenState extends State<LoginScreen> {
       _errorDetail = null;
     });
     try {
-      final (pending, url) = _google.beginSignIn();
+      final (pending, url) = OAuthFlow(oauth).beginSignIn();
       await _store.savePending(pending);
-      await _google.openBrowser(url);
+      await OAuthFlow(oauth).openBrowser(url);
     } catch (e) {
       if (!mounted) return;
       setState(() {
         _busy = false;
-        _error = e is GoogleAuthException ? e.message : _friendlyError(e);
+        _error = e is OAuthException ? e.message : _friendlyError(e);
         _errorDetail = e.toString();
       });
     }
@@ -187,14 +196,19 @@ class _LoginScreenState extends State<LoginScreen> {
 
   /// Second half of the flow, triggered by the redirect — on a fresh launch or
   /// while the app is still running.
-  Future<void> _completeGoogle(Uri redirect) async {
-    if (!_google.isRedirect(redirect)) return;
+  Future<void> _completeOAuth(Uri redirect) async {
     final pending = await _store.readPending();
-    if (pending == null) {
+    OAuthProvider? matched;
+    for (final candidate in OAuthProviders.configured) {
+      if (OAuthFlow(candidate).isRedirect(redirect)) matched = candidate;
+    }
+    if (matched == null) return;
+    final flow = OAuthFlow(matched);
+    if (pending == null || pending.providerId != matched.id) {
       if (!mounted) return;
       setState(() {
         _busy = false;
-        _error = 'Connexion Google interrompue. Réessayez.';
+        _error = 'Connexion ${matched!.label} interrompue. Réessayez.';
       });
       return;
     }
@@ -204,29 +218,29 @@ class _LoginScreenState extends State<LoginScreen> {
 
     final gateway = EnoughMailGateway();
     try {
-      var session = await _google.completeSignIn(redirect, pending);
+      var session = await flow.completeSignIn(redirect, pending);
 
       final service = MailService(
         gateway: gateway,
         account: MailAccount(
-          host: 'imap.gmail.com',
-          port: 993,
+          host: matched.imapHost,
+          port: matched.imapPort,
           user: session.email,
         ),
         // A callback, not a fixed token: every reconnection re-reads it, so a
         // token expiring mid-deletion is renewed without the user noticing.
         credentials: () async {
-          session = await _google.refreshed(session);
-          await _store.saveGoogle(session);
+          session = await flow.refreshed(session);
+          await _store.saveOAuth(session);
           return OAuthCredentials(session.accessToken);
         },
       );
 
       final folders = await service.loadFolders();
       if (_remember) {
-        await _store.saveGoogle(session);
+        await _store.saveOAuth(session);
       } else {
-        await _store.clearGoogle();
+        await _store.clearOAuth();
       }
       if (!mounted) return;
 
@@ -242,12 +256,12 @@ class _LoginScreenState extends State<LoginScreen> {
       await service.disconnect();
       if (mounted) setState(() => _busy = false);
     } catch (e) {
-      debugPrint('[mailnet] échec de connexion Google: $e');
+      debugPrint('[mailnet] échec de connexion ${matched.id}: \$e');
       await gateway.disconnect();
       if (!mounted) return;
       setState(() {
         _busy = false;
-        _error = e is GoogleAuthException ? e.message : _friendlyError(e);
+        _error = e is OAuthException ? e.message : _friendlyError(e);
         _errorDetail = e.toString();
       });
     }
@@ -361,10 +375,11 @@ class _LoginScreenState extends State<LoginScreen> {
                               ? 'Mot de passe requis'
                               : null,
                         ),
-                        if (_googleAvailable) ...[
+                        if (_oauth != null) ...[
                           const SizedBox(height: 20),
-                          _GoogleButton(
-                            onPressed: _busy ? null : _startGoogle,
+                          _OAuthButton(
+                            provider: _oauth!,
+                            onPressed: _busy ? null : _startOAuth,
                           ),
                           const SizedBox(height: 18),
                           Row(
@@ -512,11 +527,12 @@ class _Header extends StatelessWidget {
   }
 }
 
-/// Google's own button styling: white ground, its four-colour mark, and the
-/// exact wording their brand guidelines require.
-class _GoogleButton extends StatelessWidget {
-  const _GoogleButton({required this.onPressed});
+/// Both providers ask for a white button carrying their own mark and the
+/// wording their brand guidelines require.
+class _OAuthButton extends StatelessWidget {
+  const _OAuthButton({required this.provider, required this.onPressed});
 
+  final OAuthProvider provider;
   final VoidCallback? onPressed;
 
   @override
@@ -527,8 +543,33 @@ class _GoogleButton extends StatelessWidget {
           foregroundColor: const Color(0xFF1F1F1F),
           disabledBackgroundColor: Colors.white70,
         ),
-        icon: const _GoogleMark(),
-        label: const Text('Se connecter avec Google'),
+        icon: provider.id == 'microsoft'
+            ? const _MicrosoftMark()
+            : const _GoogleMark(),
+        label: Text('Se connecter avec ${provider.label}'),
+      );
+}
+
+/// Microsoft's four squares, drawn rather than bundled.
+class _MicrosoftMark extends StatelessWidget {
+  const _MicrosoftMark();
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+        width: 20,
+        height: 20,
+        child: GridView.count(
+          crossAxisCount: 2,
+          mainAxisSpacing: 2,
+          crossAxisSpacing: 2,
+          physics: const NeverScrollableScrollPhysics(),
+          children: const [
+            ColoredBox(color: Color(0xFFF25022)),
+            ColoredBox(color: Color(0xFF7FBA00)),
+            ColoredBox(color: Color(0xFF00A4EF)),
+            ColoredBox(color: Color(0xFFFFB900)),
+          ],
+        ),
       );
 }
 

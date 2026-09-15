@@ -50,6 +50,17 @@
                 <category android:name="android.intent.category.BROWSABLE"/>
                 <data android:scheme="${googleRedirectScheme}"/>
             </intent-filter>
+
+            <!-- Microsoft shares the msauth scheme across every app that uses
+                 it, so the host carries our package name to tell ours apart. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data
+                    android:scheme="msauth"
+                    android:host="${microsoftRedirectHost}"/>
+            </intent-filter>
         </activity>
 
         <service

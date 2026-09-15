@@ -27,6 +27,13 @@ val googleRedirectScheme: String = if (googleClientId.isEmpty()) {
         googleClientId.removeSuffix(".apps.googleusercontent.com")
 }
 
+// Microsoft does not reverse the client id: its Android redirect is
+// msauth://<package>/<signature hash>, so the scheme is shared between apps
+// and only the host tells them apart.
+val microsoftClientId: String = oauthProperties.getProperty("microsoftClientId") ?: ""
+val microsoftSignatureHash: String =
+    oauthProperties.getProperty("microsoftSignatureHash") ?: ""
+
 plugins {
     id("com.android.application")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
@@ -68,6 +75,7 @@ android {
         versionName = flutter.versionName
 
         manifestPlaceholders["googleRedirectScheme"] = googleRedirectScheme
+        manifestPlaceholders["microsoftRedirectHost"] = "fr.mailnet"
     }
 
     buildTypes {

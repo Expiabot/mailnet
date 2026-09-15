@@ -8,7 +8,7 @@ class MailProvider {
     this.port = 993,
     this.hint = '',
     this.requiresOAuth = false,
-    this.supportsGoogle = false,
+    this.oauthProviderId,
     this.isCustom = false,
   });
 
@@ -20,13 +20,13 @@ class MailProvider {
   /// Shown under the provider picker — mostly "where do I get an app password".
   final String hint;
 
-  /// Microsoft refuses passwords from third-party apps outright. Until the
-  /// OAuth flow ships on mobile, saying so beats letting the login fail.
+  /// Microsoft refuses passwords from third-party apps outright, so this
+  /// provider is unusable without its OAuth button.
   final bool requiresOAuth;
 
-  /// Offers "Se connecter avec Google" instead of a password, when the build
-  /// carries a client id.
-  final bool supportsGoogle;
+  /// Id of the OAuth provider offered instead of a password, when the build
+  /// carries a client id for it.
+  final String? oauthProviderId;
 
   final bool isCustom;
 }
@@ -36,7 +36,7 @@ const kProviders = <MailProvider>[
     id: 'gmail',
     label: 'Gmail',
     host: 'imap.gmail.com',
-    supportsGoogle: true,
+    oauthProviderId: 'google',
     hint: "Gmail refuse votre mot de passe habituel. Activez la validation en "
         "2 étapes, puis créez un mot de passe d'application de 16 caractères "
         "sur myaccount.google.com/apppasswords (avec ou sans les espaces).",
@@ -46,10 +46,9 @@ const kProviders = <MailProvider>[
     label: 'Outlook / Microsoft 365',
     host: 'outlook.office365.com',
     requiresOAuth: true,
+    oauthProviderId: 'microsoft',
     hint: "Microsoft n'accepte plus de mot de passe dans les applications "
-        "externes. La connexion « Se connecter avec Microsoft » arrive dans une "
-        "prochaine version ; en attendant, utilisez MailNet sur ordinateur pour "
-        "ces comptes.",
+        "externes : utilisez le bouton « Se connecter avec Microsoft ».",
   ),
   MailProvider(
     id: 'yahoo',
