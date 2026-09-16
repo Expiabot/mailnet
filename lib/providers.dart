@@ -9,6 +9,7 @@ class MailProvider {
     this.hint = '',
     this.requiresOAuth = false,
     this.oauthProviderId,
+    this.needsAppPassword = false,
     this.isCustom = false,
   });
 
@@ -28,12 +29,17 @@ class MailProvider {
   /// carries a client id for it.
   final String? oauthProviderId;
 
+  /// The provider rejects the account password and requires a generated one.
+  /// French ISPs do not; the big webmail providers do.
+  final bool needsAppPassword;
+
   final bool isCustom;
 }
 
 const kProviders = <MailProvider>[
   MailProvider(
     id: 'gmail',
+    needsAppPassword: true,
     label: 'Gmail',
     host: 'imap.gmail.com',
     oauthProviderId: 'google',
@@ -52,6 +58,7 @@ const kProviders = <MailProvider>[
   ),
   MailProvider(
     id: 'yahoo',
+    needsAppPassword: true,
     label: 'Yahoo Mail',
     host: 'imap.mail.yahoo.com',
     hint: "Créez un mot de passe d'application : Yahoo → Sécurité du compte → "
@@ -59,6 +66,7 @@ const kProviders = <MailProvider>[
   ),
   MailProvider(
     id: 'icloud',
+    needsAppPassword: true,
     label: 'iCloud',
     host: 'imap.mail.me.com',
     hint: "Créez un mot de passe d'application sur appleid.apple.com → "
@@ -74,7 +82,14 @@ const kProviders = <MailProvider>[
     id: 'orange',
     label: 'Orange',
     host: 'imap.orange.fr',
-    hint: 'Utilisez le mot de passe de votre boîte mail Orange.',
+    // Orange stopped accepting the account password for third-party clients,
+    // and disables IMAP by default on recent mailboxes.
+    needsAppPassword: true,
+    hint: "Orange n'accepte plus votre mot de passe habituel. Générez un mot "
+        "de passe dédié dans votre espace client, rubrique « Connexion et "
+        "sécurité » : 23 caractères en groupes de 5 séparés par des tirets. "
+        "Le générer active aussi l'accès IMAP, désactivé par défaut sur les "
+        "boîtes récentes.",
   ),
   MailProvider(
     id: 'laposte',

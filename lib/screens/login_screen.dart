@@ -337,14 +337,23 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  static String _friendlyError(Object? error) {
+  /// Advice only helps when it matches the provider that actually refused:
+  /// sending an Orange user to look for a Gmail app password wastes their time.
+  String _friendlyError(Object? error) {
     final text = error.toString().toLowerCase();
     if (error is MailAuthException ||
         text.contains('invalid credentials') ||
         text.contains('authenticationfail') ||
         text.contains('login failed')) {
-      return "Identifiants refusés par le serveur. Pour Gmail, Yahoo ou iCloud, "
-          "il faut un mot de passe d'application, pas votre mot de passe habituel.";
+      if (_provider.needsAppPassword) {
+        return "Identifiants refusés par ${_provider.label}. Ce fournisseur "
+            "n'accepte pas votre mot de passe habituel : il faut un mot de "
+            "passe d'application généré depuis votre compte.";
+      }
+      return "Identifiants refusés par ${_provider.label}. Vérifiez votre "
+          "adresse et votre mot de passe — si vous venez de le changer, "
+          "effacez le champ et saisissez le nouveau, celui affiché est "
+          "l'ancien.";
     }
     if (text.contains('socket') ||
         text.contains('timeout') ||
